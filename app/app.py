@@ -5,6 +5,7 @@ import asyncio
 import requests
 import httpx
 import logging
+import os
 
 # Set up logging with more detailed configuration
 logging.basicConfig(
@@ -13,7 +14,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-platitude_url = "http://192.168.3.141:8000"
+platitude_url = os.getenv("PLATITIDE_URL")
 
 app = Flask(__name__)
 

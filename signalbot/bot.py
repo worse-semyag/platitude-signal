@@ -46,7 +46,7 @@ class healthcheck(Command):
 
 
 if __name__ == "__main__":
-    load_dotenv()
+    # Environment variables should already be loaded by start.sh
     enable_console_logging(logging.INFO)
     platitude_url = os.getenv("PLATITIDE_URL")
     report_url = os.getenv("REPORT_URL")

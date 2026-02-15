@@ -12,7 +12,9 @@ RUN apt-get update -y && python -m pip install --upgrade pip && pip install -r r
 
 # Copy all application files
 COPY . .
-COPY start.sh .
-
+COPY start.sh ./start.sh
+COPY .env  
 # Make sure start.sh is executable
-CMD ["start.sh"]
+RUN chmod +x ./start.sh
+
+CMD ["./start.sh"]
