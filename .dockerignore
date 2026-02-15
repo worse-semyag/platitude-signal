@@ -1,0 +1,21 @@
+*.pyc
+__pycache__
+venv/
+.git/
+node_modules/
+*.log
+.DS_Store
+envexample
+exampleenv
+Dockerfile
+.dockerignore
+README.md
+LICENSE
+*.md
+
+# Visual Studio Code Visible Files
+dockerfile
+
+# Visual Studio Code Open Tabs
+.env
+dockerfile

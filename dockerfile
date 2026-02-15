@@ -4,9 +4,15 @@ FROM python:3.13-slim-bullseye
 
 WORKDIR /app
 
-COPY requirements.txt requirements.txt
-COPY . .
+# Copy requirements first
+COPY requirements.txt .
 
+# Install dependencies
 RUN apt-get update -y && python -m pip install --upgrade pip && pip install -r requirements.txt
 
-CMD ["/start.sh"]
+# Copy all application files
+COPY . .
+COPY start.sh .
+
+# Make sure start.sh is executable
+CMD ["start.sh"]
