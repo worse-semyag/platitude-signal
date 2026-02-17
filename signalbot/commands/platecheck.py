@@ -99,7 +99,7 @@ class platecheck(Command):
             plate= plate_code
             #vehicle = s.get("vehicle_id", "unknown")
             
-            line = (f"Location:{longitude},{latitude}", f" || Time:{timestamp}")
+            line = (f"**Location**:{longitude},{latitude}", f" || **Time**:{timestamp}")
             sightings_formatted.append(line)
             logger.debug("LOOP")
         
@@ -108,9 +108,9 @@ class platecheck(Command):
         logger.debug(vehicle_info)
         if vehicle_info is not None: 
             vehicle_msg = (
-                f"Make {vehicle_info.get('make', 'unknown')}\n"
-                f"Model  {vehicle_info.get('model', 'unknown')}\n"
-                f"Color  {vehicle_info.get('color', 'unknown')}"
+                f"**Make** {vehicle_info.get('make', 'unknown')}\n"
+                f"**Model**  {vehicle_info.get('model', 'unknown')}\n"
+                f"**Color**  {vehicle_info.get('color', 'unknown')}"
             )
         else: 
             vehicle_msg = "VEHICLE INFO UNKNOWN"
@@ -121,6 +121,6 @@ class platecheck(Command):
         
         # Send appropriate message based on number of sightings
         if len(sighting) == 1:
-            await c.send(f"One Sighting found\nPlate: {plate}\n{vehicle_msg}\n{msg}")
+            await c.send(f"--**1 Sighting found**--\n**Plate**: {plate}\n{vehicle_msg}\n{msg}",text_mode="stylized")
         elif len(sighting) > 1:
-            await c.send(f"Multiple Sightings found\nPlate: {plate}\n{vehicle_msg}\n{msg}")
+            await c.send(f"--**{len(sighting)} Sightings found**\n**Plate**: {plate}\n{vehicle_msg}\n{msg}")
