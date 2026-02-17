@@ -4,6 +4,7 @@ import logging
 import re
 import httpx
 import os
+from datetime import datetime
 
 from signalbot import SignalBot, Command, Context, triggered, enable_console_logging, regex_triggered
 
@@ -98,7 +99,7 @@ class platecheck(Command):
             timestamp = s["timestamp"]
             plate= plate_code
             #vehicle = s.get("vehicle_id", "unknown")
-            
+            logger.info(f"{type(timestamp)}")
             line = (f"**Location**:{longitude},{latitude}", f" || **Time**:{timestamp}")
             sightings_formatted.append(line)
             logger.debug("LOOP")
