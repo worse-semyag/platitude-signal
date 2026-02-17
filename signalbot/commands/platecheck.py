@@ -96,7 +96,8 @@ class platecheck(Command):
         for s in sighting:
             longitude = s["longitude"]
             latitude = s["latitude"]
-            timestamp = s["timestamp"]
+            #timestamp = s["timestamp"]
+            timestamp =s["timestamp"].strftime("%I:%M %p on %b %d, %Y")
             plate= plate_code
             #vehicle = s.get("vehicle_id", "unknown")
             logger.info(f"{type(timestamp)}")
