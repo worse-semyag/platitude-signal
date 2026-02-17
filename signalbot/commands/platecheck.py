@@ -35,8 +35,9 @@ class platecheck(Command):
         # Check if plate has been entered into DB
         try: 
             async with httpx.AsyncClient() as client:
-                logger.debug(f"Checking plate at {self.platitude_url}/plates/code/{raw_plate}")
+                logger.info(f"Checking plate at {self.platitude_url}/plates/code/{raw_plate}")
                 response = await client.get(f"{self.platitude_url}/plates/code/{raw_plate}")
+                logger.info(response)
             
             if response.status_code == 200:
                 data = response.json()
