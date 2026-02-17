@@ -41,7 +41,7 @@ class platecheck(Command):
             if response.status_code == 200:
                 data = response.json()
                 plate_id = data[0]["id"]
-                plate_code = data[0]["code"]
+                plate_code = data["code"]
                 logger.info(f"GOT PLATE {plate_code}")
                 await self._handle_plate_found(c, plate_id, plate_code)
             else: 
@@ -49,7 +49,7 @@ class platecheck(Command):
                 logger.debug(response.status_code)
 
         except Exception as e:
-            logger.error(f"Error connecting to Platitude: {e}")
+            logger.error(f"Error connecting to Platitude Platecheck: {e}")
             await c.reply("Unable to connect to Platitude try again later.")
     
     async def _handle_plate_found(self, c: Context, plate_id: str, plate_code: str) -> None:

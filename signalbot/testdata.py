@@ -2,7 +2,7 @@ import requests
 from datetime import datetime
 import csv
 
-platitude_url= "http://192.168.3.141:8000/"
+platitude_url= "https://plates.desante.dev/"
 
 def create_plate(url, plate_data):
     """Create a new plate entry"""
@@ -29,8 +29,8 @@ plate1 = {"code": "XYZ789"}
 plate2 = {"code": "ABC123"}
 
 ###POST TEST PLATES
-plate1_data = create_plate(platitude_url, plate1)
-plate2_data = create_plate(platitude_url, plate2)
+#plate1_data = create_plate(platitude_url, plate1)
+#plate2_data = create_plate(platitude_url, plate2)
 
 #GET TEST PLATES FOR TEST SIGHTINGS 
 plate1data = get_plate_by_code(platitude_url, "XYZ789")
@@ -60,11 +60,11 @@ plate2_vehice = {
            "year": "2019",
            "color": "red"
          }
-vehicle_json = create_vehicle(platitude_url, plate2_vehice)
-print(type(vehicle_json))
-print(vehicle_json['id'])
-plate2_vehicle_id = vehicle_json['id']
-print(type(plate2_vehicle_id))
+#vehicle_json = create_vehicle(platitude_url, plate2_vehice)
+#print(type(vehicle_json))
+#print(vehicle_json['id'])
+#plate2_vehicle_id = vehicle_json['id']
+#print(type(plate2_vehicle_id))
 
 
 
