@@ -103,7 +103,7 @@ class platecheck(Command):
             plate= plate_code
             #vehicle = s.get("vehicle_id", "unknown")
             logger.info(f"{type(timestamp)}")
-            line = (f"**Location**:{longitude},{latitude}" + f" || **Time**:{timestamp}")
+            line = (f"**Location**:{longitude},{latitude} || **Time**:{timestamp}")
             sightings_formatted.append(line)
             logger.debug("LOOP")
         
