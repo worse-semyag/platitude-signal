@@ -16,6 +16,7 @@ class platecheck(Command):
         self.platitude_url = platitude_url or os.getenv("PLATITIDE_URL")
         if not self.platitude_url:
             raise ValueError("PLATITIDE_URL must be provided either as parameter or via environment variable")
+        logger.info(f"Initialized platecheck with URL: {self.platitude_url}")
     
     @regex_triggered(r"^/platecheck\b")
     async def handle(self, c: Context) -> None:
@@ -28,47 +29,71 @@ class platecheck(Command):
             return
 
         raw_plate = parts[1].strip().upper()
+        logger.info(f"Processing plate check for: {raw_plate}")
         await self._process_plate_check(c, raw_plate)
     
     async def _process_plate_check(self, c: Context, raw_plate: str) -> None:
         """Process the plate check logic"""
         # Check if plate has been entered into DB
         try: 
-            async with httpx.AsyncClient() as client:
-                logger.info(f"Checking plate at {self.platitude_url}/plates/code/{raw_plate}")
-                response = await client.get(f"{self.platitude_url}/plates/code/{raw_plate}")
-                logger.info(response)
+            logger.info(f"Making request to plates endpoint for plate: {raw_plate}")
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                url = f"{self.platitude_url}/plates/code/{raw_plate}"
+                logger.debug(f"Request URL: {url}")
+                response = await client.get(url)
+                logger.info(f"Response status code: {response.status_code}")
+                logger.debug(f"Response text: {response.text[:200]}...")  # First 200 chars
             
             if response.status_code == 200:
                 data = response.json()
+                logger.info(f"Got plate data with {len(data)} entries")
                 plate_id = data[0]["id"]
                 plate_code = data[0]["code"]
-                logger.info(f"GOT PLATE {plate_code}")
+                logger.info(f"GOT PLATE {plate_code} with ID: {plate_id}")
                 await self._handle_plate_found(c, plate_id, plate_code)
             else: 
+                logger.warning(f"Plate not found. Status code: {response.status_code}, Response: {response.text[:100]}...")
                 await c.reply("No Plate Found")
-                logger.debug(response.status_code)
 
+        except httpx.TimeoutException:
+            logger.error("Timeout connecting to Platitude Platecheck - request took too long")
+            await c.reply("Unable to connect to Platitude: Request timed out. Try again later.")
+        except httpx.NetworkError:
+            logger.error("Network error connecting to Platitude Platecheck")
+            await c.reply("Unable to connect to Platitude: Network error. Check your connection and try again later.")
         except Exception as e:
-            logger.error(f"Error connecting to Platitude Platecheck: {e}")
+            logger.exception(f"Unexpected error in _process_plate_check: {e}")
             await c.reply("Unable to connect to Platitude try again later.")
     
     async def _handle_plate_found(self, c: Context, plate_id: str, plate_code: str) -> None:
         """Handle the case when a plate is found in database"""
+        logger.info(f"Handling plate found for ID: {plate_id}, code: {plate_code}")
         # If plate has been found we look for sightings
         try:
-            async with httpx.AsyncClient() as client:
-                sight_response = await client.get(f"{self.platitude_url}/sightings/plate/{plate_id}")
-                logger.debug("SIGHTING TESTED")
+            logger.info("Making request to sightings endpoint")
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                url = f"{self.platitude_url}/sightings/plate/{plate_id}"
+                logger.debug(f"Request URL: {url}")
+                sight_response = await client.get(url)
+                logger.info(f"Sightings response status code: {sight_response.status_code}")
+                logger.debug(f"Sightings response text: {sight_response.text[:200]}...")  # First 200 chars
                 
                 if sight_response.status_code == 200: 
                     sighting = sight_response.json()
-                    logger.debug(sighting)
+                    logger.info(f"Got {len(sighting)} sightings")
+                    logger.debug(f"Sightings data: {sighting}")
                     return await self._handle_sightings(c, sighting, plate_code)
                 else:
+                    logger.warning(f"No sightings found. Status code: {sight_response.status_code}, Response: {sight_response.text[:100]}...")
                     await c.send(f"No Sightings found for plate {plate_code} please use /plateadd to add the plate")
+        except httpx.TimeoutException:
+            logger.error("Timeout connecting to Platitude Platecheck during sightings request - request took too long")
+            await c.reply("Unable to connect to Platitude: Request timed out. Try again later.")
+        except httpx.NetworkError:
+            logger.error("Network error connecting to Platitude Platecheck during sightings request")
+            await c.reply("Unable to connect to Platitude: Network error. Check your connection and try again later.")
         except Exception as e:
-            logger.error(f"Error fetching sightings: {e}")
+            logger.exception(f"Unexpected error in _handle_plate_found: {e}")
             await c.reply("Unable to connect to Platitude try again later.")
     
     async def _handle_sightings(self, c: Context, sighting: list, plate_code: str) -> None:
@@ -76,19 +101,29 @@ class platecheck(Command):
         sightings_formatted = []
         vehicle_info = None
         
+        logger.info(f"Processing {len(sighting)} sightings for plate {plate_code}")
         # Get vehicle info if available
         if sighting[0].get("vehicle_id") is not None:
             vehicle_id = sighting[0]['vehicle_id']
             logger.debug("VEHICLE_ID " + vehicle_id)
             try:
-                async with httpx.AsyncClient() as client:
+                logger.info(f"Making request to vehicles endpoint for ID: {vehicle_id}")
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    url = f"{self.platitude_url}/vehicles/{vehicle_id}"
                     logger.debug("GETTING VEHICLE")
-                    vehicle_response = await client.get(f"{self.platitude_url}/vehicles/{vehicle_id}")
-                    logger.debug("GOT VEHICLE")
-                    logger.debug(vehicle_response)
+                    logger.debug(f"Request URL: {url}") 
+                    vehicle_response = await client.get(url)
+                    logger.info(f"Vehicle response status code: {vehicle_response.status_code}")
+                    logger.debug(f"Vehicle response text: {vehicle_response.text[:200]}...")  # First 200 chars
                     vehicle_info = vehicle_response.json()
+            except httpx.TimeoutException:
+                logger.error("Timeout connecting to Platitude Platecheck during vehicle request - request took too long")
+                await c.reply("Unable to connect to Platitude: Request timed out. Try again later.")
+            except httpx.NetworkError:
+                logger.error("Network error connecting to Platitude Platecheck during vehicle request")
+                await c.reply("Unable to connect to Platitude: Network error. Check your connection and try again later.")
             except Exception as e:
-                logger.error(f"Error fetching vehicle info: {e}")
+                logger.exception(f"Unexpected error fetching vehicle info: {e}")
         else: 
             logger.debug("NO VEHICLEID")
 
