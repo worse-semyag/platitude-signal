@@ -156,7 +156,7 @@ class platecheck(Command):
             vehicle_msg = "VEHICLE INFO UNKNOWN"
         logger.debug(vehicle_msg)
         
-        msg = "\n\n".join(f"{loc},{time}" for loc, time in sightings_formatted)
+        msg = "\n\n".join(f"{loc_time}" for loc_time in sightings_formatted)
         logger.debug(f"MSG: {msg}")
         
         # Send appropriate message based on number of sightings
