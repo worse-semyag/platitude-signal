@@ -34,12 +34,12 @@ class healthcheck(Command):
                 timestamp= data["timestamp"]
 
                
-                await c.send(f"Status: {status} \nDatabase: {database} \nTimestamp: {timestamp}")
+                await c.send(f"**Status**: {status} \nDatabase: {database} \nTimestamp: {timestamp}", text_mode="styled")
             else:
                 logger.debug(response)
         except: 
             logger.warning("Unable to connect to health")
-            await c.send("Unable to connect to health")
+            await c.send("**Unable** to connect to *health*",text_mode="styled")
 
             
 
