@@ -121,6 +121,6 @@ class platecheck(Command):
         
         # Send appropriate message based on number of sightings
         if len(sighting) == 1:
-            await c.send(f"--**1 Sighting found**--\n**Plate**: {plate}\n{vehicle_msg}\n{msg}",text_mode="stylized")
+            await c.send(f"--**1 Sighting found**--\n**Plate**: {plate}\n{vehicle_msg}\n{msg}",text_mode="styled")
         elif len(sighting) > 1:
-            await c.send(f"--**{len(sighting)} Sightings found**\n**Plate**: {plate}\n{vehicle_msg}\n{msg}")
+            await c.send(f"--**{len(sighting)} Sightings found**\n**Plate**: {plate}\n{vehicle_msg}\n{msg}",text_mode="styled")
