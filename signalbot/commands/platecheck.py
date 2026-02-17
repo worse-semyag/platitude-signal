@@ -41,7 +41,7 @@ class platecheck(Command):
             if response.status_code == 200:
                 data = response.json()
                 plate_id = data[0]["id"]
-                plate_code = data["code"]
+                plate_code = data[0]["code"]
                 logger.info(f"GOT PLATE {plate_code}")
                 await self._handle_plate_found(c, plate_id, plate_code)
             else: 
