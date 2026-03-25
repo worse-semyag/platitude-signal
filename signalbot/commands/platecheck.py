@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class platecheck(Command):
     def __init__(self, platitude_url=None):
         # Allow URL to be passed in or get from environment variable
-        self.platitude_url = platitude_url or os.getenv("PLATITIDE_URL")
+        self.platitude_url = (platitude_url or os.getenv("PLATITIDE_URL")).strip() if (platitude_url or os.getenv("PLATITIDE_URL")) else None
         if not self.platitude_url:
             raise ValueError("PLATITIDE_URL must be provided either as parameter or via environment variable")
         logger.info(f"Initialized platecheck with URL: {self.platitude_url}")

@@ -7,7 +7,7 @@ from datetime import datetime
 
 import httpx
 
-from signalbot import SignalBot, Command, Context, regex_triggered
+from signalbot import SignalBot, Command, Context, triggered, regex_triggered
 
 logger = logging.getLogger(__name__)
 
@@ -32,22 +32,23 @@ class autoplate(Command):
     
     def __init__(self, platitude_url=None):
         # Allow URL to be passed in or get from environment variable
-        self.platitude_url = platitude_url or os.getenv("PLATITUDE_URL")
+        self.platitude_url = (platitude_url or os.getenv("PLATITUDE_URL")).strip() if (platitude_url or os.getenv("PLATITUDE_URL")) else None
         if not self.platitude_url:
             raise ValueError(
                 "PLATITUDE_URL must be provided either as parameter or via environment variable"
             )
         logger.info(f"Initialized autoplate with URL: {self.platitude_url}")
-    
-    @regex_triggered(r".*")  # Match all messages for regex scanning
+
+    @regex_triggered(r"[A-Z]{3}\d{4}")
     async def handle(self, c: Context) -> None:
         """Handle incoming messages and detect license plates."""
         message_text = c.message.text
-        
+        print("AUTO WORKING" + message_text)
         # Search for license plate patterns in the message
         matches = PLATE_REGEX.findall(message_text)
         
         if not matches:
+            logger.info("No matches")
             return  # No plate found, ignore this message
         
         # Process each detected plate (deduplicate by converting to uppercase)
@@ -55,6 +56,7 @@ class autoplate(Command):
         for match in matches:
             plate = match.strip().upper()
             if plate and plate not in seen_plates:
+                logger.info("Auto looking")
                 seen_plates.add(plate)
                 await self._process_plate(c, plate)
     
@@ -95,6 +97,92 @@ class autoplate(Command):
         except KeyError as e:
             await self._log_failure(f"Missing key in API response for plate {raw_plate}: {e}")
     
+    async def _fetch_and_send_sightings(self, c: Context, plate_id: str, plate_code: str) -> None:
+        """Fetch sightings for a plate and send them back to Signal."""
+        try:
+            logger.info(f"Fetching sightings for plate ID: {plate_id}")
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                url = f"{self.platitude_url}/sightings/plate/{plate_id}"
+                response = await client.get(url)
+                
+                if response.status_code == 200:
+                    sightings = response.json()
+                    logger.info(f"Got {len(sightings)} sightings")
+                    
+                    # Format and send sightings back to Signal
+                    formatted_msg = self._format_sightings_message(sightings, plate_code)
+                    await c.send(formatted_msg, text_mode="styled")
+                else:
+                    logger.warning(f"No sightings found. Status code: {response.status_code}")
+                    await c.send(f"No Sightings found for plate {plate_code}", text_mode="styled")
+                    
+        except httpx.TimeoutException:
+            logger.error("Timeout fetching sightings")
+            await c.send("Unable to connect to Platitude: Request timed out.", text_mode="styled")
+        except httpx.NetworkError:
+            logger.error("Network error fetching sightings")
+            await c.send("Unable to connect to Platitude: Network error.", text_mode="styled")
+        except Exception as e:
+            logger.exception(f"Unexpected error fetching sightings: {e}")
+            await c.send("Unable to fetch sightings. Try again later.", text_mode="styled")
+    
+    async def _format_sightings_message(self, sightings: list, plate_code: str) -> str:
+        """Format sightings into a readable message."""
+        if not sightings:
+            return f"No Sightings found for plate {plate_code}"
+        
+        vehicle_info = None
+        sighting_lines = []
+        
+        # Get vehicle info if available from first sighting
+        if sightings and sightings[0].get("vehicle_id"):
+            vehicle_id = sightings[0]['vehicle_id']
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    url = f"{self.platitude_url}/vehicles/{vehicle_id}"
+                    response = await client.get(url)
+                    if response.status_code == 200:
+                        vehicle_info = response.json()
+            except Exception:
+                pass
+        
+        # Format each sighting
+        for s in sightings:
+            longitude = s.get("longitude", "unknown")
+            latitude = s.get("latitude", "unknown")
+            timestamp_raw = s.get("timestamp", "")
+            
+            try:
+                if timestamp_raw:
+                    timestamp_dt = datetime.fromisoformat(timestamp_raw)
+                    timestamp = timestamp_dt.strftime("%I:%M %p on %b %d, %Y")
+                else:
+                    timestamp = "unknown time"
+            except (ValueError, TypeError):
+                timestamp = "unknown time"
+            
+            line = f"**Location**: {longitude},{latitude} || **Time**: {timestamp}"
+            sighting_lines.append(line)
+        
+        # Format vehicle info
+        if vehicle_info:
+            vehicle_msg = (
+                f"\n\n**Make**: {vehicle_info.get('make', 'unknown')}\n"
+                f"**Model**:  {vehicle_info.get('model', 'unknown')}\n"
+                f"**Color**:   {vehicle_info.get('color', 'unknown')}"
+            )
+        else:
+            vehicle_msg = "\n\n**Vehicle Info**: Unknown"
+        
+        # Build final message
+        msg = (
+            f"--**{len(sightings)} Sighting(s) found**--\n"
+            f"**Plate**: {plate_code}\n"
+            + "\n".join(sighting_lines) + vehicle_msg
+        )
+        
+        return msg
+    
     async def _request(self, url: str):
         """Reusable async HTTP client with timeout for GET requests."""
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -119,4 +207,3 @@ class autoplate(Command):
                 f"Failed to add plate {plate} - Status: {response.status_code}, "
                 f"Response: {response.text[:200]}"
             )
-    

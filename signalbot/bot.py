@@ -70,6 +70,6 @@ if __name__ == "__main__":
     bot.register(HelpCommand())
     bot.register(platecheck(platitude_url))
     bot.register(report(report_url))
-    #bot.register(autoplate())
+    bot.register(autoplate(platitude_url))
     bot.start()
 
