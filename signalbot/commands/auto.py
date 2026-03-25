@@ -8,6 +8,10 @@ from datetime import datetime
 import httpx
 
 from signalbot import SignalBot, Command, Context, triggered, regex_triggered
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,26 +41,58 @@ class autoplate(Command):
             raise ValueError(
                 "PLATITUDE_URL must be provided either as parameter or via environment variable"
             )
-        logger.info(f"Initialized autoplate with URL: {self.platitude_url}")
+        logger.info(f"[autoplate] Initialized with URL: {self.platitude_url}")
+        
+        # Log the regex_triggered pattern being used
+        logger.info(f"[autoplate] Decorator pattern: r\"[A-Za-z]{{3}}\\d+\"")
+        
+        # Test if our PLATE_REGEX matches "XYZ7890"
+        test_plate = "XYZ7890"
+        test_matches = PLATE_REGEX.findall(test_plate)
+        logger.info(f"[autoplate] Self-test: Does '{test_plate}' match PLATE_REGEX? {bool(test_matches)} -> {test_matches}")
+        
+        # Test if the decorator pattern matches "XYZ7890"
+        import re
+        decorator_pattern = r"[A-Za-z]{3}\d+"
+        decorator_match = re.search(decorator_pattern, test_plate)
+        logger.info(f"[autoplate] Decorator pattern self-test: Does '{test_plate}' match? {bool(decorator_match)} -> {decorator_match.group() if decorator_match else None}")
 
-    @regex_triggered(r"[A-Z]{3}\d{4}")
+    @regex_triggered(r".*[A-Za-z]{3}\d+.*")
     async def handle(self, c: Context) -> None:
         """Handle incoming messages and detect license plates."""
+        # Log that this command was invoked (decorator matched)
+        logger.info(f"=== autoplate COMMAND INVOKED ===")
+        await c.react("\U0001f440")
         message_text = c.message.text
-        print("AUTO WORKING" + message_text)
+        
+        # Log full message text for debugging  
+        logger.info(f"[autoplate] Full message text: {message_text}")
+        
+        # Debug log to confirm trigger with truncated version
+        logger.info(f"[autoplate] Triggered! Message preview: '{message_text[:100]}...'")
+        
+        print("AUTO WORKING" * 10)
+        
+        # Log what pattern is being used for matching
+        logger.info(f"[autoplate] Using PLATE_REGEX pattern to search message")
+        
         # Search for license plate patterns in the message
         matches = PLATE_REGEX.findall(message_text)
         
         if not matches:
-            logger.info("No matches")
+            logger.warning(f"[autoplate] NO PLATE MATCHED! Message: '{message_text}'")
             return  # No plate found, ignore this message
+        
+        # Log what plates were matched
+        for i, match in enumerate(matches):
+            logger.info(f"[autoplate] Match #{i+1}: '{match.strip()}'")
         
         # Process each detected plate (deduplicate by converting to uppercase)
         seen_plates = set()
         for match in matches:
             plate = match.strip().upper()
             if plate and plate not in seen_plates:
-                logger.info("Auto looking")
+                logger.info(f"Auto looking - Found plate: {plate}")
                 seen_plates.add(plate)
                 await self._process_plate(c, plate)
     
@@ -82,12 +118,6 @@ class autoplate(Command):
             if response.status_code == 200:
                 data = response.json()
                 await self._log_success(f"Plate {raw_plate} found in database with ID: {data.get('id')}")
-                
-                plate_id = data["id"]
-                plate_code = data["code"]
-                
-                # Fetch and send sightings for this plate
-                await self._fetch_and_send_sightings(c, plate_id, plate_code)
             
             else:
                 # Plate not found - auto-add it to database (silently log only)
@@ -96,92 +126,6 @@ class autoplate(Command):
                 
         except KeyError as e:
             await self._log_failure(f"Missing key in API response for plate {raw_plate}: {e}")
-    
-    async def _fetch_and_send_sightings(self, c: Context, plate_id: str, plate_code: str) -> None:
-        """Fetch sightings for a plate and send them back to Signal."""
-        try:
-            logger.info(f"Fetching sightings for plate ID: {plate_id}")
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                url = f"{self.platitude_url}/sightings/plate/{plate_id}"
-                response = await client.get(url)
-                
-                if response.status_code == 200:
-                    sightings = response.json()
-                    logger.info(f"Got {len(sightings)} sightings")
-                    
-                    # Format and send sightings back to Signal
-                    formatted_msg = self._format_sightings_message(sightings, plate_code)
-                    await c.send(formatted_msg, text_mode="styled")
-                else:
-                    logger.warning(f"No sightings found. Status code: {response.status_code}")
-                    await c.send(f"No Sightings found for plate {plate_code}", text_mode="styled")
-                    
-        except httpx.TimeoutException:
-            logger.error("Timeout fetching sightings")
-            await c.send("Unable to connect to Platitude: Request timed out.", text_mode="styled")
-        except httpx.NetworkError:
-            logger.error("Network error fetching sightings")
-            await c.send("Unable to connect to Platitude: Network error.", text_mode="styled")
-        except Exception as e:
-            logger.exception(f"Unexpected error fetching sightings: {e}")
-            await c.send("Unable to fetch sightings. Try again later.", text_mode="styled")
-    
-    async def _format_sightings_message(self, sightings: list, plate_code: str) -> str:
-        """Format sightings into a readable message."""
-        if not sightings:
-            return f"No Sightings found for plate {plate_code}"
-        
-        vehicle_info = None
-        sighting_lines = []
-        
-        # Get vehicle info if available from first sighting
-        if sightings and sightings[0].get("vehicle_id"):
-            vehicle_id = sightings[0]['vehicle_id']
-            try:
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    url = f"{self.platitude_url}/vehicles/{vehicle_id}"
-                    response = await client.get(url)
-                    if response.status_code == 200:
-                        vehicle_info = response.json()
-            except Exception:
-                pass
-        
-        # Format each sighting
-        for s in sightings:
-            longitude = s.get("longitude", "unknown")
-            latitude = s.get("latitude", "unknown")
-            timestamp_raw = s.get("timestamp", "")
-            
-            try:
-                if timestamp_raw:
-                    timestamp_dt = datetime.fromisoformat(timestamp_raw)
-                    timestamp = timestamp_dt.strftime("%I:%M %p on %b %d, %Y")
-                else:
-                    timestamp = "unknown time"
-            except (ValueError, TypeError):
-                timestamp = "unknown time"
-            
-            line = f"**Location**: {longitude},{latitude} || **Time**: {timestamp}"
-            sighting_lines.append(line)
-        
-        # Format vehicle info
-        if vehicle_info:
-            vehicle_msg = (
-                f"\n\n**Make**: {vehicle_info.get('make', 'unknown')}\n"
-                f"**Model**:  {vehicle_info.get('model', 'unknown')}\n"
-                f"**Color**:   {vehicle_info.get('color', 'unknown')}"
-            )
-        else:
-            vehicle_msg = "\n\n**Vehicle Info**: Unknown"
-        
-        # Build final message
-        msg = (
-            f"--**{len(sightings)} Sighting(s) found**--\n"
-            f"**Plate**: {plate_code}\n"
-            + "\n".join(sighting_lines) + vehicle_msg
-        )
-        
-        return msg
     
     async def _request(self, url: str):
         """Reusable async HTTP client with timeout for GET requests."""

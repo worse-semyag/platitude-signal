@@ -24,6 +24,29 @@ class PingCommand(Command):
 class healthcheck(Command):
     @regex_triggered(r"^/healthcheck")
     async def handle(self, c: Context) -> None:
+        logger.info("HEALTHCHECK STARTED" * 20)
+        try:
+            platitude_url = os.getenv("PLATITIDE_URL")
+            response = requests.get(url=f"{platitude_url}/health")
+            if response.status_code == 200:
+                data = response.json()
+
+                status = data["status"]
+                database = data["database"]
+                timestamp= data["timestamp"]
+
+               
+                await c.send(f"**Status**: {status} \nDatabase: {database} \nTimestamp: {timestamp}", text_mode="styled")
+            else:
+                logger.debug(response)
+        except: 
+            logger.warning("Unable to connect to health")
+            await c.send("**Unable** to connect to *health*",text_mode="styled")
+
+class autotest(Command):
+    @regex_triggered()
+    async def handle(self, c: Context) -> None:
+        logger.info("HEALTHCHECK STARTED" * 20)
         try:
             platitude_url = os.getenv("PLATITIDE_URL")
             response = requests.get(url=f"{platitude_url}/health")
@@ -57,6 +80,7 @@ if __name__ == "__main__":
     logger.info(signal_service)
     phone_number= os.getenv("PHONE_NUMBER")
     logger.info(phone_number)
+    print("STARTED" * 10)
 
 
     bot = SignalBot({
