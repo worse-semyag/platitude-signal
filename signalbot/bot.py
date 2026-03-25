@@ -8,7 +8,7 @@ import json
 import httpx
 from datetime import datetime
 
-from commands import platecheck, HelpCommand, report
+from commands import platecheck, HelpCommand, report, autoplate
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +70,6 @@ if __name__ == "__main__":
     bot.register(HelpCommand())
     bot.register(platecheck(platitude_url))
     bot.register(report(report_url))
-
+    #bot.register(autoplate())
     bot.start()
 
